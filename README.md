@@ -41,4 +41,4 @@ const result = StellarBase.xdr.ScVal.fromXDR(resultXdr, 'base64').posI64();
 - [ ] Dynamically load the contract WASM
 - [ ] Nicer result formatting/display
 - [ ] Figure out how big this is once compiled with the host functions etc.
-  - Currently the runtime is ~440kb runtime
+  - Currently the runtime is ~440kb, 192kb gzipped.
