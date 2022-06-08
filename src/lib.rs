@@ -5,8 +5,8 @@ use std::io::Cursor;
 
 use std::error::Error;
 use stellar_contract_env_host::{
-    xdr::{Error as XdrError, ReadXdr, WriteXdr, ScVec, ScVal, VecM},
-    Host, Vm,
+    xdr::{Error as XdrError, ReadXdr, WriteXdr, Hash, ScVec, ScVal, VecM},
+    ContractId, Host, Vm,
 };
 
 /// Deserialize an SCVec XDR object of SCVal arguments from the C++ side of the
@@ -15,27 +15,42 @@ use stellar_contract_env_host::{
 /// value.
 #[wasm_bindgen]
 pub fn invoke_contract(
-    wasmBase64: &str,
+    contract_id_base64: &str,
+    wasm_base64: &str,
     func: &str,
-    argsXdrBase64: &str,
+    args_xdr_base64: &str,
 ) -> Vec<u8> {
-    do_invoke_contract(wasmBase64, func, argsXdrBase64).unwrap()
+    do_invoke_contract(
+        contract_id_base64,
+        wasm_base64,
+        func,
+        args_xdr_base64
+    ).unwrap()
 }
 
 pub fn do_invoke_contract(
-    wasmBase64: &str,
+    contract_id_base64: &str,
+    wasm_base64: &str,
     func: &str,
-    argsXdrBase64: &str,
+    args_xdr_base64: &str,
 ) -> Result<Vec<u8>, Box<dyn Error>> {
-    let wasm = base64::decode(wasmBase64)?;
-    let args = base64::decode(argsXdrBase64)?;
-    let arg_scvals = ScVec::read_xdr(&mut Cursor::new(args.as_slice()))?;
+    let contract_id: ContractId = ContractId(Hash::read_xdr(&mut Cursor::new(base64::decode(contract_id_base64)?.as_slice()))?);
+    let wasm = base64::decode(wasm_base64)?;
+    let args: ScVec = if args_xdr_base64.len() > 0 {
+        ScVec::read_xdr(
+            &mut Cursor::new(
+                base64::decode(args_xdr_base64)?.as_slice()
+            )
+        )?
+    } else {
+        vec![].try_into()?
+    };
 
     let mut host = Host::default();
-    let vm = Vm::new(&host, wasm.as_slice())?;
+    let vm = Vm::new(&host, contract_id, wasm.as_slice())?;
 
-    let res = vm.invoke_function(&mut host, func, &arg_scvals)?;
-    eprintln!("arg_scvals: {:?}", arg_scvals);
+    let res = vm.invoke_function(&mut host, func, &args)?;
+    eprintln!("args: {:?}", args);
     eprintln!("res: {:?}", res);
 
     let mut ret_xdr_buf: Vec<u8> = Vec::new();
